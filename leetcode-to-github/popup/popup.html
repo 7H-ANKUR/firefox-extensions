@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>LeetCode → GitHub</title>
+<link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <h1>LeetCode → GitHub <span id="versionBadge" class="version-badge"></span></h1>
+    <p class="subtitle">Auto-push accepted solutions to a repo</p>
+  </header>
+
+  <main>
+    <label for="ghToken">GitHub Token</label>
+    <input type="password" id="ghToken" placeholder="ghp_xxx... or fine-grained token" autocomplete="off" />
+    <p class="hint">
+      Needs <b>repo</b> scope (classic PAT) or <b>Contents: Read & write</b>
+      (fine-grained). Create one at
+      <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">github.com/settings/tokens</a>.
+    </p>
+
+    <div class="row">
+      <div>
+        <label for="ghOwner">Owner</label>
+        <input type="text" id="ghOwner" placeholder="e.g. 7H-ANKUR" />
+      </div>
+      <div>
+        <label for="ghRepo">Repository</label>
+        <input type="text" id="ghRepo" placeholder="e.g. leetcode-solutions" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label for="ghBranch">Branch</label>
+        <input type="text" id="ghBranch" placeholder="main" />
+      </div>
+      <div>
+        <label for="commitPrefix">Commit prefix</label>
+        <input type="text" id="commitPrefix" placeholder="LeetCode" />
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="saveBtn" class="primary">Save</button>
+      <button id="testBtn">Test connection</button>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <details>
+      <summary>How it works</summary>
+      <ol>
+        <li>Open any LeetCode problem and solve it as usual.</li>
+        <li>When your submission is <b>Accepted</b>, the extension captures the exact code you submitted.</li>
+        <li>It creates/updates <code>NNNN-problem-slug/solution.ext</code> and a <code>README.md</code> in your repo automatically.</li>
+        <li>No action needed on LeetCode's side — nothing about the site's UI is changed.</li>
+      </ol>
+    </details>
+  </main>
+
+  <script src="popup.js"></script>
+</body>
+</html>

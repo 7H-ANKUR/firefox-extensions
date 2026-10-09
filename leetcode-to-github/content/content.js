@@ -1,0 +1,574 @@
+/**
+ * content.js — runs on every https://leetcode.com/problems/* page.
+ *
+ * Two ways a push happens:
+ *
+ *  AUTO (Accepted-only): a MutationObserver binds a click listener straight
+ *  onto LeetCode's real Submit button ([data-e2e-locator="console-submit-button"]).
+ *  On click we ask background.js for the submission id (it gets this via
+ *  chrome.webNavigation.onHistoryStateUpdated — LeetCode's SPA updates the
+ *  URL to /problems/<slug>/submissions/<id>/ via the History API once
+ *  judging starts), then poll the DOM for the result banner
+ *  ([data-e2e-locator="submission-result"]) and only push if it says
+ *  "Accepted".
+ *
+ *  MANUAL (any verdict, on demand): when you're viewing a submission's own
+ *  page (.../submissions/<id>/ — e.g. from your Submissions list), a
+ *  "⬆ Push to GitHub" button appears next to LeetCode's own Solution/
+ *  Analysis buttons. Clicking it pushes THAT submission's code straight
+ *  away, no Accepted check — this mirrors the real LeetHub extension's own
+ *  manual "Sync w/ LeetHub" button, which behaves the same way.
+ *
+ * This detection strategy (selectors, GraphQL field names, the
+ * webNavigation trick, the manual-button toolbar target) is adapted from
+ * the real, actively-maintained LeetHub-2.0 extension
+ * (github.com/arunbhardwaj/LeetHub-2.0) rather than re-guessed.
+ */
+(function () {
+  if (window.__lc2gh_content_loaded__) return;
+  window.__lc2gh_content_loaded__ = true;
+
+  const api = typeof browser !== "undefined" ? browser : chrome;
+
+  console.log("[LC→GH] content script loaded on", window.location.href);
+
+  // LeetCode's GraphQL `lang.verboseName` strings -> file extension.
+  const LANG_EXT = {
+    C: "c",
+    "C++": "cpp",
+    "C#": "cs",
+    Dart: "dart",
+    Elixir: "ex",
+    Erlang: "erl",
+    Go: "go",
+    Java: "java",
+    JavaScript: "js",
+    Javascript: "js",
+    Kotlin: "kt",
+    MySQL: "sql",
+    "MS SQL Server": "sql",
+    Oracle: "sql",
+    PostgreSQL: "sql",
+    Pandas: "py",
+    PHP: "php",
+    Python: "py",
+    Python3: "py",
+    Racket: "rkt",
+    Ruby: "rb",
+    Rust: "rs",
+    Scala: "scala",
+    Swift: "swift",
+    TypeScript: "ts",
+  };
+
+  // ---------- tiny UI helpers ----------
+
+  function showReadyBadge() {
+    if (document.getElementById("lc2gh-ready-badge")) return;
+    const badge = document.createElement("div");
+    badge.id = "lc2gh-ready-badge";
+    badge.textContent = "🔗 LC→GH ready";
+    badge.title = "Click to manually push the submission open in this tab (if any)";
+    badge.style.cssText = `
+      position: fixed; bottom: 24px; left: 24px; z-index: 2147483647;
+      background: #1a1a1a; color: #9adf9a;
+      padding: 5px 10px; border-radius: 20px;
+      font: 500 11px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25); opacity: 0.55;
+      cursor: pointer; pointer-events: auto; transition: opacity .2s;
+    `;
+    badge.addEventListener("mouseover", () => (badge.style.opacity = "1"));
+    badge.addEventListener("mouseout", () => (badge.style.opacity = "0.55"));
+    // Clicking the badge is a reasonable thing for a user to try even
+    // though it's primarily a status indicator — so it should actually do
+    // something: push whatever submission the current URL points to, same
+    // as the dedicated manual button.
+    badge.addEventListener("click", async () => {
+      if (badge.dataset.busy) return;
+      const submissionId = getSubmissionIdFromUrl();
+      if (!submissionId) {
+        showToast(
+          "ℹ️ Submit a solution, or open one from your Submissions list, then click again.",
+          false
+        );
+        return;
+      }
+      badge.dataset.busy = "true";
+      const original = badge.textContent;
+      badge.textContent = "Pushing…";
+      await pushSubmissionById(submissionId);
+      badge.textContent = original;
+      delete badge.dataset.busy;
+    });
+    (document.body || document.documentElement).appendChild(badge);
+    console.log("[LC→GH] ready badge shown");
+  }
+
+  function removeReadyBadge() {
+    const el = document.getElementById("lc2gh-ready-badge");
+    if (el) el.remove();
+  }
+
+  function showToast(text, isError) {
+    const el = document.createElement("div");
+    el.textContent = text;
+    // Deliberately positioned top-right — NOT bottom-right, which is where
+    // the manual push button lives. The two used to share a spot, and
+    // since toasts render after (and therefore on top of) the button in
+    // DOM order, a toast could silently swallow clicks meant for the
+    // button underneath it. pointer-events: none below is a second,
+    // independent safeguard against that same class of bug.
+    el.style.cssText = `
+      position: fixed; top: 24px; right: 24px; z-index: 2147483647;
+      background: ${isError ? "#e53935" : "#1a7f37"}; color: #fff;
+      padding: 10px 16px; border-radius: 8px;
+      font: 500 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      box-shadow: 0 4px 14px rgba(0,0,0,.28); max-width: 340px;
+      opacity: 0; transition: opacity .25s ease;
+      pointer-events: none;
+    `;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => (el.style.opacity = "1"));
+    setTimeout(() => {
+      el.style.opacity = "0";
+      setTimeout(() => el.remove(), 400);
+    }, 4500);
+  }
+
+  function whenBodyReady(fn) {
+    if (document.body) fn();
+    else document.addEventListener("DOMContentLoaded", fn, { once: true });
+  }
+
+  whenBodyReady(showReadyBadge);
+
+  // ---------- LeetCode GraphQL calls ----------
+
+  // Field names copied verbatim from the real LeetHub extension's proven,
+  // currently-working query — not re-guessed.
+  const SUBMISSION_DETAILS_QUERY = `
+    query submissionDetails($submissionId: Int!) {
+      submissionDetails(submissionId: $submissionId) {
+        runtime
+        runtimeDisplay
+        runtimePercentile
+        memory
+        memoryDisplay
+        memoryPercentile
+        code
+        statusCode
+        lang {
+          name
+          verboseName
+        }
+        question {
+          questionId
+          title
+          titleSlug
+          difficulty
+          topicTags {
+            name
+          }
+        }
+      }
+    }
+  `;
+
+  const QUESTION_FRONTEND_ID_QUERY = `
+    query questionFrontendId($titleSlug: String!) {
+      question(titleSlug: $titleSlug) {
+        questionFrontendId
+      }
+    }
+  `;
+
+  async function graphql(query, variables) {
+    const res = await fetch("https://leetcode.com/graphql/", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query, variables }),
+    });
+    const json = await res.json();
+    if (json.errors) {
+      console.warn("[LC→GH] GraphQL error:", json.errors);
+      return null;
+    }
+    return json.data;
+  }
+
+  async function fetchSubmissionDetails(submissionId) {
+    const data = await graphql(SUBMISSION_DETAILS_QUERY, { submissionId: Number(submissionId) });
+    return data && data.submissionDetails;
+  }
+
+  async function fetchQuestionFrontendId(titleSlug) {
+    const data = await graphql(QUESTION_FRONTEND_ID_QUERY, { titleSlug });
+    return data && data.question && data.question.questionFrontendId;
+  }
+
+  // ---------- shared: fetch a submission by id and push it ----------
+
+  function extractStatsFromDOM() {
+    let runtimeDisplay = null;
+    let memoryDisplay = null;
+    const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+    let n;
+    while ((n = walk.nextNode())) {
+      const text = n.nodeValue.trim();
+      if (!runtimeDisplay && /^\d+\s*ms$/i.test(text)) runtimeDisplay = text;
+      if (!memoryDisplay && /^\d+(?:\.\d+)?\s*(MB|KB)$/i.test(text)) memoryDisplay = text;
+    }
+    return { runtimeDisplay, memoryDisplay };
+  }
+
+  // useAlert: when true, a successful push shows a blocking window.alert()
+  // instead of a toast — used specifically for the automatic (post-Submit)
+  // path, since a toast can be missed if you've looked away, while alert()
+  // forces you to notice and dismiss it. Manual pushes (clicking the badge
+  // or the dedicated button) keep using the toast, since you're already
+  // looking at the screen when you click.
+  async function pushSubmissionById(submissionId, { useAlert = false } = {}) {
+    console.log("[LC→GH] fetching submission details for", submissionId);
+    const details = await fetchSubmissionDetails(submissionId);
+    if (!details) {
+      showToast("⚠️ Could not read that submission from LeetCode", true);
+      return false;
+    }
+
+    const titleSlug = details.question && details.question.titleSlug;
+    const frontendId = titleSlug ? await fetchQuestionFrontendId(titleSlug) : null;
+    const verboseName = details.lang && details.lang.verboseName;
+
+    const domStats = extractStatsFromDOM();
+    const runtimeDisp = (details.runtimeDisplay && details.runtimeDisplay !== "N/A") ? details.runtimeDisplay : domStats.runtimeDisplay;
+    const memoryDisp = (details.memoryDisplay && details.memoryDisplay !== "N/A") ? details.memoryDisplay : domStats.memoryDisplay;
+
+    const payload = {
+      submissionId,
+      slug: titleSlug || window.location.pathname.split("/")[2],
+      lang: LANG_EXT[verboseName] || (verboseName || "txt").toLowerCase(),
+      code: details.code,
+      runtime: runtimeDisp || null,
+      runtimePercentile: typeof details.runtimePercentile === "number" ? details.runtimePercentile : null,
+      memory: memoryDisp || null,
+      memoryPercentile: typeof details.memoryPercentile === "number" ? details.memoryPercentile : null,
+      title: (details.question && details.question.title) || null,
+      questionNumber: frontendId || null,
+      difficulty: (details.question && details.question.difficulty) || null,
+      topics: (details.question && details.question.topicTags && details.question.topicTags.map((t) => t.name)) || [],
+    };
+
+    if (!payload.code) {
+      console.warn("[LC→GH] submission details had no code field");
+      showToast("⚠️ No code was returned for this submission by LeetCode", true);
+      return false;
+    }
+
+    console.log("[LC→GH] pushing to GitHub:", payload.slug, payload.lang);
+    const response = await api.runtime.sendMessage({ type: "PUSH_SOLUTION", payload });
+
+    if (response && response.ok) {
+      const label = payload.title || payload.slug;
+      if (useAlert) {
+        alert(`✅ Pushed "${label}" to GitHub!\n\n${payload.runtime || ""}${payload.runtime && payload.memory ? " · " : ""}${payload.memory || ""}`);
+      } else {
+        showToast(`✅ Pushed "${label}" to GitHub`);
+      }
+      return true;
+    }
+    showToast(`⚠️ GitHub push failed: ${(response && response.error) || "unknown error"}`, true);
+    return false;
+  }
+
+  // ==========================================================
+  // AUTO PATH — bind to the real Submit button, push only if Accepted
+  // ==========================================================
+
+  function requestSubmissionId() {
+    console.log("[LC→GH] asking background for submission id…");
+    return api.runtime
+      .sendMessage({ type: "LEETCODE_SUBMISSION" })
+      .then((res) => res && res.submissionId)
+      .catch((err) => {
+        console.warn("[LC→GH] could not reach background script:", err);
+        return null;
+      });
+  }
+
+  // LeetCode's own verdict strings. Used both to recognize the primary
+  // result element and as a fallback text scan if that element's exact
+  // attribute isn't present in a given UI state (LeetCode has more than
+  // one layout for showing a result — a fresh "just submitted" panel vs.
+  // switching to an "Accepted" tab on an already-open problem — and we
+  // can't be certain both use the same data-e2e-locator).
+  const VERDICT_WORDS = [
+    "Accepted",
+    "Wrong Answer",
+    "Time Limit Exceeded",
+    "Memory Limit Exceeded",
+    "Runtime Error",
+    "Compile Error",
+    "Output Limit Exceeded",
+  ];
+
+  function findVerdictElement() {
+    const primary = document.querySelector('[data-e2e-locator="submission-result"]');
+    if (primary) return primary;
+
+    // Fallback: scan for a small, mostly-leaf element whose own text starts
+    // with a known verdict word — catches layouts the primary selector misses.
+    const candidates = document.querySelectorAll("div, span, h1, h2, h3");
+    for (const el of candidates) {
+      const text = (el.textContent || "").trim();
+      if (text.length > 0 && text.length < 80 && el.children.length <= 2 && VERDICT_WORDS.some((w) => text.startsWith(w))) {
+        return el;
+      }
+    }
+    return null;
+  }
+
+  function waitForResult(maxAttempts = 90, intervalMs = 500) {
+    return new Promise((resolve) => {
+      let attempts = 0;
+      const tick = () => {
+        const el = findVerdictElement();
+        if (el) {
+          resolve(el.textContent ? el.textContent.trim() : "");
+          return;
+        }
+        attempts++;
+        if (attempts >= maxAttempts) {
+          resolve(null);
+          return;
+        }
+        setTimeout(tick, intervalMs);
+      };
+      tick();
+    });
+  }
+
+  let autoInFlight = false;
+
+  async function handleSubmitClick() {
+    if (autoInFlight) return;
+    autoInFlight = true;
+    console.log("[LC→GH] submit clicked");
+
+    try {
+      const submissionId = await requestSubmissionId();
+      if (!submissionId) {
+        console.warn("[LC→GH] no submission id received — can't track this run");
+        showToast("⚠️ Couldn't get a submission id for this run — open it from your Submissions list and use the manual button instead.", true);
+        return;
+      }
+      console.log("[LC→GH] submission id:", submissionId);
+      ensureManualButtonVisible(submissionId);
+
+      const verdictText = await waitForResult();
+      if (verdictText === null) {
+        console.warn("[LC→GH] timed out waiting for a result to render");
+        showToast("⚠️ Didn't detect a result in time — open this submission from your Submissions list and use the manual button instead.", true);
+        return;
+      }
+      console.log("[LC→GH] verdict banner text:", JSON.stringify(verdictText));
+
+      if (!verdictText.startsWith("Accepted")) {
+        showToast(`Not synced (${verdictText || "no verdict"})`, false);
+        return;
+      }
+
+      console.log("[LC→GH] Accepted — pushing automatically");
+      removeReadyBadge();
+      await pushSubmissionById(submissionId, { useAlert: true });
+      showReadyBadge();
+    } catch (err) {
+      console.error("[LC→GH] unexpected error:", err);
+      showToast(`⚠️ ${err.message || "Unexpected error"}`, true);
+    } finally {
+      autoInFlight = false;
+    }
+  }
+
+  function findSubmitButton() {
+    const primary = document.querySelector('[data-e2e-locator="console-submit-button"]');
+    if (primary) return primary;
+
+    // Fallback: a <button> whose own visible text is "Submit" — the
+    // literal label LeetCode shows regardless of its internal attributes.
+    // Relying only on the exact attribute above would silently break
+    // everything downstream (no auto-push, no safety-net button either,
+    // since handleSubmitClick never runs) if that attribute ever changes.
+    const buttons = document.querySelectorAll("button");
+    for (const btn of buttons) {
+      if ((btn.textContent || "").trim() === "Submit") return btn;
+    }
+    for (const btn of buttons) {
+      const text = (btn.textContent || "").trim();
+      if (text.length < 20 && /^submit\b/i.test(text)) return btn;
+    }
+    return null;
+  }
+
+  function tryBindSubmitButton() {
+    const btn = findSubmitButton();
+    if (btn && !btn.dataset.lc2ghBound) {
+      btn.dataset.lc2ghBound = "true";
+      btn.addEventListener("click", handleSubmitClick);
+      console.log("[LC→GH] bound to Submit button:", (btn.outerHTML || btn.textContent || "").slice(0, 120));
+      return true;
+    }
+    return false;
+  }
+
+  // ==========================================================
+  // MANUAL PATH — a button on any /submissions/<id>/ page, any verdict
+  // ==========================================================
+
+  function getSubmissionIdFromUrl() {
+    const m = window.location.pathname.match(/\/submissions\/(\d+)/);
+    return m ? m[1] : null;
+  }
+
+  // Same toolbar LeetHub-2.0 targets: the row of small buttons that
+  // includes "Solution" (and "Analysis") on a submission's own page.
+  function findSubmissionToolbar() {
+    const candidates = document.querySelectorAll(".flex.flex-none.gap-2:not(.justify-center):not(.justify-between)");
+    for (const el of candidates) {
+      if (el.textContent && el.textContent.includes("Solution")) return el;
+    }
+    return null;
+  }
+
+  async function runManualPush(btn, submissionId) {
+    if (btn.dataset.busy) return;
+    btn.dataset.busy = "true";
+    const original = btn.textContent;
+    btn.textContent = "Pushing…";
+    btn.style.opacity = "0.7";
+    btn.style.cursor = "default";
+    await pushSubmissionById(submissionId);
+    btn.textContent = original;
+    btn.style.opacity = "1";
+    btn.style.cursor = "pointer";
+    delete btn.dataset.busy;
+  }
+
+  function makeManualButtonElement(submissionId, floating) {
+    const btn = document.createElement(floating ? "div" : "button");
+    btn.id = "lc2gh-manual-btn";
+    btn.textContent = "⬆ Push to GitHub";
+    btn.title = "Push this submission's code to GitHub now";
+    // pointer-events: auto is explicit (not just the default) because this
+    // sits at the exact z-index ceiling (2147483647) specifically so
+    // nothing — including our own toasts — can end up stacked on top of
+    // it and silently eat clicks meant for this button.
+    btn.style.cssText = floating
+      ? `
+        position: fixed; bottom: 24px; right: 24px; z-index: 2147483647;
+        padding: 10px 18px; border-radius: 8px; border: none;
+        background: #2ea043; color: #fff;
+        font: 600 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        cursor: pointer; user-select: none; pointer-events: auto;
+        box-shadow: 0 4px 14px rgba(0,0,0,.28);
+      `
+      : `
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 5px 14px; border-radius: 8px; border: none;
+        background: #2ea043; color: #fff;
+        font: 600 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        cursor: pointer; margin-left: 8px; pointer-events: auto;
+      `;
+    btn.addEventListener("click", () => runManualPush(btn, submissionId));
+    return btn;
+  }
+
+  // Safety net: as soon as we know a submission id (right after you click
+  // Submit), show a manual button immediately — before we even know the
+  // verdict. If Accepted-detection below succeeds, the auto-push happens
+  // on its own anyway; if it times out or the page layout doesn't match
+  // what we expect, you're never left with nothing to click.
+  function ensureManualButtonVisible(submissionId) {
+    if (document.getElementById("lc2gh-manual-btn")) return;
+    document.body.appendChild(makeManualButtonElement(submissionId, true));
+    console.log("[LC→GH] manual push button shown after submit (safety net)");
+  }
+
+  function setupManualButton() {
+    let lastHandledId = null;
+    let attemptsForCurrentId = 0;
+    const maxAttempts = 10;
+
+    function clearExisting() {
+      const el = document.getElementById("lc2gh-manual-btn");
+      if (el) el.remove();
+    }
+
+    function attempt() {
+      const submissionId = getSubmissionIdFromUrl();
+      if (!submissionId) return; // not on a submission's own page
+
+      if (submissionId !== lastHandledId) {
+        // URL moved to a different submission — reset and start over.
+        clearExisting();
+        lastHandledId = submissionId;
+        attemptsForCurrentId = 0;
+      }
+
+      if (document.getElementById("lc2gh-manual-btn")) return; // already placed
+
+      const toolbar = findSubmissionToolbar();
+      if (toolbar) {
+        toolbar.appendChild(makeManualButtonElement(submissionId, false));
+        console.log("[LC→GH] manual push button placed in toolbar");
+        return;
+      }
+
+      attemptsForCurrentId++;
+      if (attemptsForCurrentId >= maxAttempts) {
+        document.body.appendChild(makeManualButtonElement(submissionId, true));
+        console.log("[LC→GH] manual push button shown (floating fallback)");
+        return;
+      }
+      setTimeout(attempt, 500);
+    }
+
+    attempt();
+
+    // Keep watching: LeetCode's SPA can navigate between submissions (or
+    // from the live coding page to a submission page after you submit)
+    // without a full reload.
+    const observer = new MutationObserver(() => attempt());
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+  }
+
+  // ---------- wire everything up ----------
+
+  if (!tryBindSubmitButton()) {
+    const observer = new MutationObserver(() => {
+      tryBindSubmitButton();
+      // keep observing — LeetCode's SPA can remount the button when
+      // navigating between problems without a full page reload.
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+
+    // Diagnostic only: if we still haven't found a Submit button after a
+    // generous wait, say so loudly in the console — this is the single
+    // most useful thing to check if auto-push isn't firing at all. (The
+    // manual button on a submission's own page still works regardless,
+    // since it doesn't depend on this.)
+    setTimeout(() => {
+      if (!document.querySelector('[data-e2e-locator="console-submit-button"]') && !document.querySelector("button[data-lc2gh-bound]")) {
+        const anySubmitText = Array.from(document.querySelectorAll("button")).some((b) => /submit/i.test(b.textContent || ""));
+        console.warn(
+          "[LC→GH] still haven't found/bound a Submit button after 8s.",
+          anySubmitText
+            ? "A button containing 'Submit' text exists but wasn't matched — please report this."
+            : "No button on the page contains the text 'Submit' at all — are you on a problem page with the code editor visible?"
+        );
+      }
+    }, 8000);
+  }
+
+  whenBodyReady(setupManualButton);
+})();
