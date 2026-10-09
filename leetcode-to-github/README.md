@@ -2,16 +2,19 @@
 
 This extension seamlessly syncs your accepted LeetCode solutions directly to your GitHub repository. It automatically scrapes your code, runtime, and memory stats, and organizes them beautifully on GitHub.
 
-## 📥 1. How to Install in Firefox
+## 📥 1. How to Install
 
-Since this is an unpacked developer extension, you need to load it manually into Firefox:
+**Official Installation (Recommended):**
+You can install the extension directly from the official Firefox Add-ons store:
+👉 [**Install Leet Solution for Firefox**](https://addons.mozilla.org/en-US/firefox/addon/leet-solution/)
 
+**Manual Installation (Developer Mode):**
+If you want to load the code manually from this repository:
 1. Download or clone this repository to your computer.
 2. Open Firefox and type `about:debugging` in the URL/search bar.
 3. In the left sidebar, click on **"This Firefox"**.
 4. Click the **"Load Temporary Add-on..."** button.
 5. In the file explorer that opens, navigate to the `leetcode-to-github` folder and select any file inside (like `manifest.json`).
-6. The extension is now installed! You should see its icon in your Firefox toolbar (top right).
 
 ## 🔑 2. How to Generate a GitHub Token
 
