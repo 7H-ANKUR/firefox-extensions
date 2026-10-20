@@ -98,11 +98,12 @@
     const panel = document.createElement("div");
     panel.id = "lc2gh-companies-panel";
     panel.style.cssText = `
-      position: fixed; bottom: 80px; right: 24px; z-index: 2147483646;
+      position: fixed; bottom: 65px; right: 20px; z-index: 2147483646;
       background: #fff; border: 1px solid #e0e0e0;
-      border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.18);
-      padding: 14px 16px; width: 300px; max-height: 360px;
+      border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.18);
+      padding: 14px 16px; width: 310px; max-height: 380px;
       overflow-y: auto; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      scrollbar-width: thin;
     `;
 
     if (!companies || companies.length === 0) {
@@ -147,10 +148,10 @@
     const panel = document.createElement("div");
     panel.id = "lc2gh-companies-panel";
     panel.style.cssText = `
-      position: fixed; bottom: 80px; right: 24px; z-index: 2147483646;
+      position: fixed; bottom: 65px; right: 20px; z-index: 2147483646;
       background: #fff; border: 1px solid #e0e0e0;
-      border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.18);
-      padding: 14px 16px; width: 320px; max-height: 420px;
+      border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.18);
+      padding: 14px 16px; width: 330px; max-height: 440px;
       display: flex; flex-direction: column;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     `;
@@ -161,7 +162,7 @@
       </div>
       <input id="lc2gh-cp-search" type="text" placeholder="Search company (e.g. Google, Amazon…)"
         style="width:100%;padding:7px 9px;border:1px solid #d7d7d7;border-radius:6px;font-size:12px;outline:none;box-sizing:border-box;"/>
-      <div id="lc2gh-cp-results" style="margin-top:10px;overflow-y:auto;flex:1;">
+      <div id="lc2gh-cp-results" style="margin-top:10px;overflow-y:auto;flex:1;padding-right:6px;scrollbar-width:thin;">
         <p style="font-size:12px;color:#aaa;text-align:center;margin:16px 0;">Type to search a company…</p>
       </div>
     `;
@@ -193,14 +194,14 @@
             const dColor = d==='Easy'?'#d1fae5;color:#065f46':d==='Medium'?'#fef3c7;color:#92400e':'#fee2e2;color:#991b1b';
             const freq = qn.frequency ? `<span style="font-size:10px;color:#aaa;">${Math.round(qn.frequency)}%</span>` : '';
             const comp = qn.company ? `<span style="font-size:9.5px;color:#555;background:#f3f4f6;padding:1px 5px;border-radius:4px;margin-right:4px;">${qn.company}</span>` : '';
-            return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:12px;">
-              <span style="flex-shrink:0;font-size:10px;color:#aaa;width:28px;text-align:right;">#${qn.question_id}</span>
-              <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:500;">${comp}${qn.title}</span>
-              <span style="flex-shrink:0;font-size:10px;font-weight:700;padding:1px 5px;border-radius:8px;background:${dColor};">${d}</span>
+            const qUrl = `https://leetcode.com/problems/${qn.slug}/`;
+            return `<a href="${qUrl}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:6px;padding:6px 6px;margin-bottom:2px;border-radius:6px;text-decoration:none;color:inherit;border-bottom:1px solid #f3f4f6;transition:background .12s ease;cursor:pointer;" onmouseenter="this.style.background='#f1f5f9'" onmouseleave="this.style.background='transparent'">
+              <span style="flex-shrink:0;font-size:10px;color:#94a3b8;width:28px;text-align:right;font-weight:600;">#${qn.question_id}</span>
+              <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:12px;font-weight:500;color:#1e293b;" title="${qn.title}">${comp}${qn.title}</span>
+              <span style="flex-shrink:0;font-size:10px;font-weight:700;padding:1px 5px;border-radius:6px;background:${dColor};">${d}</span>
               ${freq}
-              <a href="https://leetcode.com/problems/${qn.slug}/" target="_blank"
-                style="flex-shrink:0;color:#2f6feb;font-size:13px;text-decoration:none;" title="Open on LeetCode">↗</a>
-            </div>`;
+              <span style="flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;background:#e0e7ff;color:#4338ca;font-size:11px;font-weight:700;margin-right:2px;" title="Open on LeetCode">↗</span>
+            </a>`;
           }).join('');
           results.innerHTML = `<p style="font-size:11px;color:#888;margin:0 0 6px;">${questions.length} questions asked by <b>${q}</b></p>${rows}`;
         } catch(e) {
@@ -244,13 +245,16 @@
       ? "See which companies asked this problem"
       : "Search companies and their interview questions";
     btn.style.cssText = `
-      position: fixed; bottom: 24px; right: 180px; z-index: 2147483647;
-      background: #1a1a1a; color: #fde68a;
-      padding: 10px 16px; border-radius: 8px; border: none;
-      font: 600 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      position: fixed; bottom: 20px; right: 20px; z-index: 2147483646;
+      background: #18181b; color: #fde68a;
+      padding: 9px 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);
+      font: 600 12.5px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       cursor: pointer; user-select: none; pointer-events: auto;
       box-shadow: 0 4px 14px rgba(0,0,0,.28);
+      transition: transform 0.15s ease, background 0.15s ease;
     `;
+    btn.onmouseenter = () => { btn.style.background = "#27272a"; btn.style.transform = "translateY(-1px)"; };
+    btn.onmouseleave = () => { btn.style.background = "#18181b"; btn.style.transform = "translateY(0)"; };
     btn.addEventListener("click", toggleCompaniesPanel);
     (document.body || document.documentElement).appendChild(btn);
   }
@@ -661,12 +665,13 @@
     // it and silently eat clicks meant for this button.
     btn.style.cssText = floating
       ? `
-        position: fixed; bottom: 24px; right: 24px; z-index: 2147483647;
-        padding: 10px 18px; border-radius: 8px; border: none;
+        position: fixed; bottom: 62px; right: 20px; z-index: 2147483647;
+        padding: 9px 16px; border-radius: 8px; border: none;
         background: #2ea043; color: #fff;
-        font: 600 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font: 600 12.5px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         cursor: pointer; user-select: none; pointer-events: auto;
         box-shadow: 0 4px 14px rgba(0,0,0,.28);
+        transition: transform 0.15s ease;
       `
       : `
         display: inline-flex; align-items: center; gap: 6px;

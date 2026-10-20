@@ -154,6 +154,8 @@ details code { background: #f4f4f4; padding: 1px 4px; border-radius: 4px; }
 .company-results {
   max-height: 340px;
   overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-width: thin;
 }
 
 .company-loading {
@@ -174,9 +176,19 @@ details code { background: #f4f4f4; padding: 1px 4px; border-radius: 4px; }
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 0;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 6px 8px;
+  margin-bottom: 2px;
+  border-radius: 6px;
+  border-bottom: 1px solid #f3f4f6;
+  text-decoration: none;
+  color: inherit;
   font-size: 12px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.question-row:hover {
+  background: #f1f5f9;
 }
 
 .question-row:last-child { border-bottom: none; }
@@ -184,9 +196,10 @@ details code { background: #f4f4f4; padding: 1px 4px; border-radius: 4px; }
 .q-num {
   flex-shrink: 0;
   font-size: 10px;
-  color: #aaa;
+  color: #94a3b8;
   width: 28px;
   text-align: right;
+  font-weight: 600;
 }
 
 .q-title {
@@ -194,7 +207,7 @@ details code { background: #f4f4f4; padding: 1px 4px; border-radius: 4px; }
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  color: #1a1a1a;
+  color: #1e293b;
   font-weight: 500;
 }
 
@@ -202,8 +215,8 @@ details code { background: #f4f4f4; padding: 1px 4px; border-radius: 4px; }
   flex-shrink: 0;
   font-size: 10px;
   font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 8px;
+  padding: 1px 6px;
+  border-radius: 6px;
 }
 
 .q-diff.Easy   { background: #d1fae5; color: #065f46; }
@@ -220,12 +233,23 @@ details code { background: #f4f4f4; padding: 1px 4px; border-radius: 4px; }
 
 .q-link {
   flex-shrink: 0;
-  color: #2f6feb;
-  font-size: 13px;
-  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: #e0e7ff;
+  color: #4338ca;
+  font-size: 11px;
+  font-weight: 700;
+  margin-right: 2px;
 }
 
-.q-link:hover { color: #1a5ed8; }
+.question-row:hover .q-link {
+  background: #4338ca;
+  color: #fff;
+}
 
 .company-error {
   font-size: 12px;

@@ -123,13 +123,13 @@ function renderQuestions(questions, company) {
     const comp = q.company ? `<span style="font-size:10px;color:#6b7280;background:#f3f4f6;padding:1px 5px;border-radius:4px;margin-right:4px;">${q.company}</span>` : "";
     const link = `https://leetcode.com/problems/${q.slug}/`;
     return `
-      <div class="question-row">
+      <a class="question-row" href="${link}" target="_blank" rel="noopener noreferrer">
         <span class="q-num">#${q.question_id}</span>
         <span class="q-title" title="${q.title}">${comp}${q.title}</span>
         <span class="q-diff ${diff}">${diff}</span>
         <span class="q-freq">${freq}</span>
-        <a class="q-link" href="${link}" target="_blank" title="Open on LeetCode">↗</a>
-      </div>`;
+        <span class="q-link" title="Open on LeetCode">↗</span>
+      </a>`;
   }).join("");
 
   container.innerHTML = countLine + rows;
