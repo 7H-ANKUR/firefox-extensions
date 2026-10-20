@@ -89,10 +89,10 @@ el("testBtn").addEventListener("click", test);
 // ---------- companies tab ----------
 
 async function fetchCompanyQuestions(company) {
-  const encoded = encodeURIComponent(company.toLowerCase());
+  const q = company.trim();
   const url = `${SUPABASE_URL}/rest/v1/question_companies` +
-    `?company=eq.${encoded}` +
-    `&select=question_id,title,slug,difficulty,frequency` +
+    `?company=ilike.*${encodeURIComponent(q)}*` +
+    `&select=question_id,title,slug,difficulty,frequency,company` +
     `&order=frequency.desc` +
     `&limit=200`;
 
@@ -120,11 +120,12 @@ function renderQuestions(questions, company) {
   const rows = questions.map((q) => {
     const diff = q.difficulty || "";
     const freq = q.frequency ? `${Math.round(q.frequency)}%` : "";
+    const comp = q.company ? `<span style="font-size:10px;color:#6b7280;background:#f3f4f6;padding:1px 5px;border-radius:4px;margin-right:4px;">${q.company}</span>` : "";
     const link = `https://leetcode.com/problems/${q.slug}/`;
     return `
       <div class="question-row">
         <span class="q-num">#${q.question_id}</span>
-        <span class="q-title" title="${q.title}">${q.title}</span>
+        <span class="q-title" title="${q.title}">${comp}${q.title}</span>
         <span class="q-diff ${diff}">${diff}</span>
         <span class="q-freq">${freq}</span>
         <a class="q-link" href="${link}" target="_blank" title="Open on LeetCode">↗</a>

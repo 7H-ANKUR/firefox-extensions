@@ -129,9 +129,10 @@
   }
 
   async function fetchCompanyQuestions(company) {
+    const q = company.trim();
     const url = `${SUPABASE_URL}/rest/v1/question_companies` +
-      `?company=eq.${encodeURIComponent(company.toLowerCase())}` +
-      `&select=question_id,title,slug,difficulty,frequency` +
+      `?company=ilike.*${encodeURIComponent(q)}*` +
+      `&select=question_id,title,slug,difficulty,frequency,company` +
       `&order=frequency.desc&limit=200`;
     const res = await fetch(url, {
       headers: { "apikey": SUPABASE_ANON, "Authorization": `Bearer ${SUPABASE_ANON}` },
@@ -191,9 +192,10 @@
             const d = qn.difficulty || '';
             const dColor = d==='Easy'?'#d1fae5;color:#065f46':d==='Medium'?'#fef3c7;color:#92400e':'#fee2e2;color:#991b1b';
             const freq = qn.frequency ? `<span style="font-size:10px;color:#aaa;">${Math.round(qn.frequency)}%</span>` : '';
+            const comp = qn.company ? `<span style="font-size:9.5px;color:#555;background:#f3f4f6;padding:1px 5px;border-radius:4px;margin-right:4px;">${qn.company}</span>` : '';
             return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:12px;">
               <span style="flex-shrink:0;font-size:10px;color:#aaa;width:28px;text-align:right;">#${qn.question_id}</span>
-              <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:500;">${qn.title}</span>
+              <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:500;">${comp}${qn.title}</span>
               <span style="flex-shrink:0;font-size:10px;font-weight:700;padding:1px 5px;border-radius:8px;background:${dColor};">${d}</span>
               ${freq}
               <a href="https://leetcode.com/problems/${qn.slug}/" target="_blank"
