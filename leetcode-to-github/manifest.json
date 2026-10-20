@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LeetCode → GitHub Auto Push",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "description": "Automatically pushes your accepted LeetCode solutions to a GitHub repository as soon as they pass.",
   "permissions": [
     "storage",
@@ -9,7 +9,8 @@
   ],
   "host_permissions": [
     "https://leetcode.com/*",
-    "https://api.github.com/*"
+    "https://api.github.com/*",
+    "https://tpgpxgbrguiogufizenw.supabase.co/*"
   ],
   "background": {
     "service_worker": "background.js",

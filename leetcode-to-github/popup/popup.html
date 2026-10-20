@@ -8,14 +8,21 @@
 <body>
   <header>
     <h1>LeetCode → GitHub <span id="versionBadge" class="version-badge"></span></h1>
-    <p class="subtitle">Auto-push accepted solutions to a repo</p>
+    <p class="subtitle">Auto-push solutions · Company insights</p>
   </header>
 
-  <main>
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="settings">⚙️ Settings</button>
+    <button class="tab-btn" data-tab="companies">🏢 Companies</button>
+  </div>
+
+  <!-- Tab: Settings -->
+  <main id="tab-settings" class="tab-panel active">
     <label for="ghToken">GitHub Token</label>
     <input type="password" id="ghToken" placeholder="ghp_xxx... or fine-grained token" autocomplete="off" />
     <p class="hint">
-      Needs <b>repo</b> scope (classic PAT) or <b>Contents: Read & write</b>
+      Needs <b>repo</b> scope (classic PAT) or <b>Contents: Read &amp; write</b>
       (fine-grained). Create one at
       <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">github.com/settings/tokens</a>.
     </p>
@@ -58,6 +65,17 @@
         <li>No action needed on LeetCode's side — nothing about the site's UI is changed.</li>
       </ol>
     </details>
+  </main>
+
+  <!-- Tab: Companies -->
+  <main id="tab-companies" class="tab-panel">
+    <div class="company-search-wrap">
+      <input type="text" id="companySearch" placeholder="🔍  Search company (e.g. Google, Meta…)" autocomplete="off" />
+    </div>
+
+    <div id="companyResults" class="company-results">
+      <p class="company-hint">Type a company name to see all questions it has asked.</p>
+    </div>
   </main>
 
   <script src="popup.js"></script>

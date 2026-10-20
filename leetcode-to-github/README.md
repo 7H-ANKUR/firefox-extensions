@@ -1,47 +1,87 @@
 # LeetCode to GitHub Sync Extension
 
-This extension seamlessly syncs your accepted LeetCode solutions directly to your GitHub repository. It automatically scrapes your code, runtime, and memory stats, and organizes them beautifully on GitHub.
+A Firefox extension that automatically pushes your accepted LeetCode solutions to your GitHub repository — complete with runtime stats, memory usage, and company interview data powered by Supabase.
+
+---
 
 ## 📥 1. How to Install
 
 **Official Installation (Recommended):**
-You can install the extension directly from the official Firefox Add-ons store:
+Install directly from the Firefox Add-ons store:
 👉 [**Install Leet Solution for Firefox**](https://addons.mozilla.org/en-US/firefox/addon/leet-solution/)
 
-**Manual Installation (Developer Mode):**
-If you want to load the code manually from this repository:
-1. Download or clone this repository to your computer.
-2. Open Firefox and type `about:debugging` in the URL/search bar.
-3. In the left sidebar, click on **"This Firefox"**.
-4. Click the **"Load Temporary Add-on..."** button.
-5. In the file explorer that opens, navigate to the `leetcode-to-github` folder and select any file inside (like `manifest.json`).
+**Manual / Developer Mode:**
+1. Download or clone this repository.
+2. Open Firefox → `about:debugging` → **"This Firefox"**.
+3. Click **"Load Temporary Add-on..."** and select any file inside the `leetcode-to-github/` folder (e.g., `manifest.json`).
+
+---
 
 ## 🔑 2. How to Generate a GitHub Token
 
-To allow the extension to push code to your GitHub, you must provide it with a secure Personal Access Token (PAT).
+1. Go to [GitHub Fine-grained Tokens](https://github.com/settings/tokens?type=beta) and click **"Generate new token"**.
+2. Name it (e.g., `LeetCode Sync`).
+3. Under **Repository access** → select **"Only select repositories"** → choose your LeetCode solutions repo.
+4. Under **Permissions → Repository permissions** → find **Contents** → set to **"Read and write"**.
+5. Click **"Generate token"** and **copy it immediately** (shown only once).
 
-1. Go to your GitHub account settings: [GitHub Fine-grained Tokens](https://github.com/settings/tokens?type=beta).
-2. Click **"Generate new token"**.
-3. Name your token (e.g., `LeetCode Sync`).
-4. Under **Repository access**, select **"Only select repositories"** and choose the specific repository where you want to save your LeetCode solutions (e.g., `leetcode-solutions`).
-5. Under **Permissions**, open **"Repository permissions"**.
-6. Find **"Contents"** and change it to **"Read and write"**. *(This is required to push files).*
-7. Click **"Generate token"** at the bottom of the page.
-8. **Copy the generated token immediately!** (GitHub will only show it to you once).
+---
 
-## ⚙️ 3. Extension Setup & Configuration
+## ⚙️ 3. Extension Setup
 
-Now that you have your token and the extension is installed:
+1. Click the extension icon in your Firefox toolbar to open the popup.
+2. Go to the **⚙️ Settings** tab.
+3. Enter your GitHub **Username** (Owner), **Repository Name**, and paste the **GitHub Token**.
+4. Click **"Test Connection"** — you should see a green success message.
 
-1. Click the LeetCode Sync extension icon in your Firefox toolbar to open the popup.
-2. Enter your GitHub **Username** (Owner). Example: `7H-ANKUR`.
-3. Enter the exact **Repository Name** you selected earlier. Example: `leetcode-solutions`.
-4. Paste the **GitHub Token** you just copied.
-5. *(Optional)* Modify the branch or commit prefix if desired.
-6. Click **"Test Connection"**. 
-7. If everything is configured correctly (and your token has Write access), you will see a green success message.
+---
 
-## 🚀 4. How to Use
+## 🚀 4. Features
 
-- **Auto-Push:** Simply solve a problem on LeetCode. When your solution is marked as **"Accepted"**, the extension will automatically extract the code, time complexity, and space complexity, and push it to GitHub in the background. You'll see a green toast pop up when it's done!
-- **Manual Push:** If you want to push an older solution, just open any accepted submission on LeetCode and click the green **"⬆ Push to GitHub"** button added to the page toolbar.
+### Auto Push
+- Solve a problem on LeetCode. When it's **Accepted**, the extension auto-pushes it to GitHub with runtime & memory stats.
+- Creates a clean folder structure: `0001-two-sum/solution.java` + `0001-two-sum/README.md`.
+
+### Manual Push
+- Open any accepted submission page and click the green **"⬆ Push to GitHub"** button.
+
+### 🏢 Company Panel (on problem pages)
+- A **"🏢 Companies"** button appears at the bottom-right of every LeetCode problem page.
+- Click it to see a panel showing all companies that have asked this question, sorted by frequency.
+
+### 🔍 Company Search (in popup)
+- Open the popup and click the **🏢 Companies** tab.
+- Type any company name (e.g., *Google*, *Meta*, *Amazon*) to instantly see all questions that company has asked, with difficulty badges and direct LeetCode links.
+
+> **Note:** The company features require the Supabase database to be populated first.
+> See the [setup scripts](../supabase_setup.sql) in the repo root.
+
+---
+
+## 📋 Release History
+
+### v2.6.0 — Company Intelligence Update
+- ✨ **NEW:** `🏢 Companies` floating button on every LeetCode problem page
+- ✨ **NEW:** Company panel showing all companies that asked the current question, with frequency %
+- ✨ **NEW:** `🏢 Companies` search tab in the extension popup with full question list per company
+- ✨ **NEW:** Tabbed popup UI (Settings / Companies)
+- 🔧 Supabase host permission added to manifest
+
+### v2.5.0 — Stability & Race Condition Fix
+- 🐛 Fixed: Concurrent push lock — auto-push and manual push can no longer run simultaneously for the same submission (prevented phantom 422 errors)
+
+### v2.4.9 — Smart 422 Retry
+- 🐛 Fixed: GitHub API 422 "not a fast-forward" error — extension now retries up to 4× with a 2s delay instead of force-pushing, completely preventing file deletion
+
+### v2.4.8 — Atomic Commits & Auto-push Timeout
+- 🐛 Fixed: Solution folders disappearing — all 4 files (code, problem README, stats.json, root README) now committed atomically in one push
+- 🐛 Fixed: Auto-push timeout increased from 15s → 45s to handle slow LeetCode judges
+
+### v2.4.6 — DOM Stats Fallback
+- 🐛 Fixed: Runtime and memory showing "N/A" — extension now scrapes values directly from the page if the LeetCode API returns N/A
+
+### v2.4.5 — URL Encoding Fix
+- 🐛 Fixed: GitHub API error 422 caused by `encodeURIComponent('heads/main')` producing `heads%2Fmain`
+
+### v2.4.x — Foundation
+- ✨ Initial working release with GitHub push, version badge, and empty repo support

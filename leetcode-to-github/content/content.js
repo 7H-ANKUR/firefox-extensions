@@ -61,6 +61,112 @@
     TypeScript: "ts",
   };
 
+  // ---------- Supabase company data ----------
+
+  const SUPABASE_URL  = "https://tpgpxgbrguiogufizenw.supabase.co";
+  const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZ3B4Z2JyZ3Vpb2d1Zml6ZW53Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0OTMzOTIsImV4cCI6MjEwODA2OTM5Mn0.JKXfXN0jkxgChz2STKzahRFofihF2MG9wwfm1271d5Q";
+
+  async function fetchCompanies(slug) {
+    const url = `${SUPABASE_URL}/rest/v1/question_companies` +
+      `?slug=eq.${encodeURIComponent(slug)}` +
+      `&select=company,frequency` +
+      `&order=frequency.desc`;
+    const res = await fetch(url, {
+      headers: {
+        "apikey":        SUPABASE_ANON,
+        "Authorization": `Bearer ${SUPABASE_ANON}`,
+      },
+    });
+    if (!res.ok) throw new Error(`Supabase ${res.status}`);
+    return res.json();
+  }
+
+  function getProblemSlugFromUrl() {
+    const m = window.location.pathname.match(/\/problems\/([^/]+)/);
+    return m ? m[1] : null;
+  }
+
+  // ---------- companies panel ----------
+
+  function removeCompaniesPanel() {
+    const el = document.getElementById("lc2gh-companies-panel");
+    if (el) el.remove();
+  }
+
+  function showCompaniesPanel(companies) {
+    removeCompaniesPanel();
+    const panel = document.createElement("div");
+    panel.id = "lc2gh-companies-panel";
+    panel.style.cssText = `
+      position: fixed; bottom: 80px; right: 24px; z-index: 2147483646;
+      background: #fff; border: 1px solid #e0e0e0;
+      border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.18);
+      padding: 14px 16px; width: 300px; max-height: 360px;
+      overflow-y: auto; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    `;
+
+    if (!companies || companies.length === 0) {
+      panel.innerHTML = `
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px;">🏢 Companies</div>
+        <p style="font-size:12px;color:#888;margin:0;">No company data found for this problem.</p>
+        <button id="lc2gh-cp-close" style="margin-top:10px;padding:4px 10px;border-radius:6px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer;float:right;">Close</button>`;
+    } else {
+      const chips = companies.map((c) => {
+        const pct = c.frequency ? ` <span style="opacity:.6;font-size:10px">${Math.round(c.frequency)}%</span>` : "";
+        return `<span style="display:inline-flex;align-items:center;gap:3px;background:#f0f6ff;color:#1a5ed8;border:1px solid #c8deff;border-radius:20px;padding:3px 9px;font-size:11.5px;font-weight:600;margin:3px 3px 0 0;">${c.company}${pct}</span>`;
+      }).join("");
+
+      panel.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <span style="font-weight:700;font-size:13px;">🏢 Asked by ${companies.length} ${companies.length === 1 ? "company" : "companies"}</span>
+          <button id="lc2gh-cp-close" style="padding:2px 8px;border-radius:6px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer;">✕</button>
+        </div>
+        <div style="line-height:1.8">${chips}</div>`;
+    }
+
+    document.body.appendChild(panel);
+    document.getElementById("lc2gh-cp-close").addEventListener("click", removeCompaniesPanel);
+  }
+
+  async function toggleCompaniesPanel() {
+    if (document.getElementById("lc2gh-companies-panel")) {
+      removeCompaniesPanel();
+      return;
+    }
+    const slug = getProblemSlugFromUrl();
+    if (!slug) return;
+
+    const btn = document.getElementById("lc2gh-companies-btn");
+    if (btn) { btn.textContent = "🏢 Loading…"; btn.style.opacity = "0.7"; }
+
+    try {
+      const companies = await fetchCompanies(slug);
+      showCompaniesPanel(companies);
+    } catch (err) {
+      showToast(`⚠️ Company data error: ${err.message}`, true);
+    } finally {
+      if (btn) { btn.textContent = "🏢 Companies"; btn.style.opacity = "1"; }
+    }
+  }
+
+  function showCompaniesButton() {
+    if (document.getElementById("lc2gh-companies-btn")) return;
+    const btn = document.createElement("div");
+    btn.id = "lc2gh-companies-btn";
+    btn.textContent = "🏢 Companies";
+    btn.title = "See which companies have asked this problem";
+    btn.style.cssText = `
+      position: fixed; bottom: 24px; right: 180px; z-index: 2147483647;
+      background: #1a1a1a; color: #fde68a;
+      padding: 10px 16px; border-radius: 8px; border: none;
+      font: 600 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      cursor: pointer; user-select: none; pointer-events: auto;
+      box-shadow: 0 4px 14px rgba(0,0,0,.28);
+    `;
+    btn.addEventListener("click", toggleCompaniesPanel);
+    (document.body || document.documentElement).appendChild(btn);
+  }
+
   // ---------- tiny UI helpers ----------
 
   function showReadyBadge() {
@@ -571,4 +677,5 @@
   }
 
   whenBodyReady(setupManualButton);
+  whenBodyReady(showCompaniesButton);
 })();
