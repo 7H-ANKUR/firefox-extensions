@@ -128,24 +128,108 @@
     document.getElementById("lc2gh-cp-close").addEventListener("click", removeCompaniesPanel);
   }
 
+  async function fetchCompanyQuestions(company) {
+    const url = `${SUPABASE_URL}/rest/v1/question_companies` +
+      `?company=eq.${encodeURIComponent(company.toLowerCase())}` +
+      `&select=question_id,title,slug,difficulty,frequency` +
+      `&order=frequency.desc&limit=200`;
+    const res = await fetch(url, {
+      headers: { "apikey": SUPABASE_ANON, "Authorization": `Bearer ${SUPABASE_ANON}` },
+    });
+    if (!res.ok) throw new Error(`Supabase ${res.status}`);
+    return res.json();
+  }
+
+  // Company search panel — shown on non-problem pages
+  function showCompanySearchPanel() {
+    removeCompaniesPanel();
+    const panel = document.createElement("div");
+    panel.id = "lc2gh-companies-panel";
+    panel.style.cssText = `
+      position: fixed; bottom: 80px; right: 24px; z-index: 2147483646;
+      background: #fff; border: 1px solid #e0e0e0;
+      border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.18);
+      padding: 14px 16px; width: 320px; max-height: 420px;
+      display: flex; flex-direction: column;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    `;
+    panel.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <span style="font-weight:700;font-size:13px;">🏢 Company Search</span>
+        <button id="lc2gh-cp-close" style="padding:2px 8px;border-radius:6px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer;">✕</button>
+      </div>
+      <input id="lc2gh-cp-search" type="text" placeholder="Search company (e.g. Google, Amazon…)"
+        style="width:100%;padding:7px 9px;border:1px solid #d7d7d7;border-radius:6px;font-size:12px;outline:none;box-sizing:border-box;"/>
+      <div id="lc2gh-cp-results" style="margin-top:10px;overflow-y:auto;flex:1;">
+        <p style="font-size:12px;color:#aaa;text-align:center;margin:16px 0;">Type to search a company…</p>
+      </div>
+    `;
+    document.body.appendChild(panel);
+    document.getElementById("lc2gh-cp-close").addEventListener("click", removeCompaniesPanel);
+
+    let timer = null;
+    const searchInput = document.getElementById("lc2gh-cp-search");
+    const results     = document.getElementById("lc2gh-cp-results");
+    searchInput.focus();
+
+    searchInput.addEventListener("input", () => {
+      clearTimeout(timer);
+      const q = searchInput.value.trim();
+      if (q.length < 2) {
+        results.innerHTML = `<p style="font-size:12px;color:#aaa;text-align:center;margin:16px 0;">Type to search a company…</p>`;
+        return;
+      }
+      results.innerHTML = `<p style="font-size:12px;color:#888;text-align:center;margin:16px 0;">Loading…</p>`;
+      timer = setTimeout(async () => {
+        try {
+          const questions = await fetchCompanyQuestions(q);
+          if (!questions.length) {
+            results.innerHTML = `<p style="font-size:12px;color:#999;text-align:center;margin:16px 0;">No results for "${q}"</p>`;
+            return;
+          }
+          const rows = questions.map(qn => {
+            const d = qn.difficulty || '';
+            const dColor = d==='Easy'?'#d1fae5;color:#065f46':d==='Medium'?'#fef3c7;color:#92400e':'#fee2e2;color:#991b1b';
+            const freq = qn.frequency ? `<span style="font-size:10px;color:#aaa;">${Math.round(qn.frequency)}%</span>` : '';
+            return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:12px;">
+              <span style="flex-shrink:0;font-size:10px;color:#aaa;width:28px;text-align:right;">#${qn.question_id}</span>
+              <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:500;">${qn.title}</span>
+              <span style="flex-shrink:0;font-size:10px;font-weight:700;padding:1px 5px;border-radius:8px;background:${dColor};">${d}</span>
+              ${freq}
+              <a href="https://leetcode.com/problems/${qn.slug}/" target="_blank"
+                style="flex-shrink:0;color:#2f6feb;font-size:13px;text-decoration:none;" title="Open on LeetCode">↗</a>
+            </div>`;
+          }).join('');
+          results.innerHTML = `<p style="font-size:11px;color:#888;margin:0 0 6px;">${questions.length} questions asked by <b>${q}</b></p>${rows}`;
+        } catch(e) {
+          results.innerHTML = `<p style="font-size:12px;color:#c00;text-align:center;margin:16px 0;">Error: ${e.message}</p>`;
+        }
+      }, 400);
+    });
+  }
+
   async function toggleCompaniesPanel() {
     if (document.getElementById("lc2gh-companies-panel")) {
       removeCompaniesPanel();
       return;
     }
     const slug = getProblemSlugFromUrl();
-    if (!slug) return;
 
-    const btn = document.getElementById("lc2gh-companies-btn");
-    if (btn) { btn.textContent = "🏢 Loading…"; btn.style.opacity = "0.7"; }
-
-    try {
-      const companies = await fetchCompanies(slug);
-      showCompaniesPanel(companies);
-    } catch (err) {
-      showToast(`⚠️ Company data error: ${err.message}`, true);
-    } finally {
-      if (btn) { btn.textContent = "🏢 Companies"; btn.style.opacity = "1"; }
+    if (slug) {
+      // Problem page → show companies for THIS question
+      const btn = document.getElementById("lc2gh-companies-btn");
+      if (btn) { btn.textContent = "🏢 Loading…"; btn.style.opacity = "0.7"; }
+      try {
+        const companies = await fetchCompanies(slug);
+        showCompaniesPanel(companies);
+      } catch (err) {
+        showToast(`⚠️ Company data error: ${err.message}`, true);
+      } finally {
+        if (btn) { btn.textContent = "🏢 Companies"; btn.style.opacity = "1"; }
+      }
+    } else {
+      // Any other LeetCode page → show company search panel
+      showCompanySearchPanel();
     }
   }
 
@@ -154,7 +238,9 @@
     const btn = document.createElement("div");
     btn.id = "lc2gh-companies-btn";
     btn.textContent = "🏢 Companies";
-    btn.title = "See which companies have asked this problem";
+    btn.title = getProblemSlugFromUrl()
+      ? "See which companies asked this problem"
+      : "Search companies and their interview questions";
     btn.style.cssText = `
       position: fixed; bottom: 24px; right: 180px; z-index: 2147483647;
       background: #1a1a1a; color: #fde68a;
@@ -167,9 +253,11 @@
     (document.body || document.documentElement).appendChild(btn);
   }
 
-  // ---------- tiny UI helpers ----------
+  // ---------- tiny UI helpers (problem-page only) ----------
 
   function showReadyBadge() {
+    // Only show on problem pages — not on every LeetCode page
+    if (!getProblemSlugFromUrl()) return;
     if (document.getElementById("lc2gh-ready-badge")) return;
     const badge = document.createElement("div");
     badge.id = "lc2gh-ready-badge";
@@ -676,6 +764,11 @@
     }, 8000);
   }
 
-  whenBodyReady(setupManualButton);
+  // GitHub push features: only on problem pages
+  if (getProblemSlugFromUrl() !== null || document.readyState === 'loading') {
+    whenBodyReady(setupManualButton);
+    whenBodyReady(showReadyBadge);
+  }
+  // Companies button: on ALL LeetCode pages
   whenBodyReady(showCompaniesButton);
 })();
