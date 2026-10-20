@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LeetCode → GitHub Auto Push",
-  "version": "2.7.0",
+  "version": "2.7.1",
   "description": "Automatically pushes your accepted LeetCode solutions to a GitHub repository as soon as they pass.",
   "permissions": [
     "storage",
