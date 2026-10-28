@@ -438,9 +438,16 @@
     const frontendId = titleSlug ? await fetchQuestionFrontendId(titleSlug) : null;
     const verboseName = details.lang && details.lang.verboseName;
 
-    const domStats = extractStatsFromDOM();
-    const runtimeDisp = (details.runtimeDisplay && details.runtimeDisplay !== "N/A") ? details.runtimeDisplay : domStats.runtimeDisplay;
-    const memoryDisp = (details.memoryDisplay && details.memoryDisplay !== "N/A") ? details.memoryDisplay : domStats.memoryDisplay;
+    // Try extracting stats; retry once after a short delay since LeetCode loads them asynchronously
+    let domStats = extractStatsFromDOM();
+    let runtimeDisp = (details.runtimeDisplay && details.runtimeDisplay !== "N/A") ? details.runtimeDisplay : domStats.runtimeDisplay;
+    let memoryDisp = (details.memoryDisplay && details.memoryDisplay !== "N/A") ? details.memoryDisplay : domStats.memoryDisplay;
+    if ((!runtimeDisp || runtimeDisp === "N/A") && !memoryDisp) {
+      await new Promise((r) => setTimeout(r, 1200));
+      domStats = extractStatsFromDOM();
+      runtimeDisp = (details.runtimeDisplay && details.runtimeDisplay !== "N/A") ? details.runtimeDisplay : domStats.runtimeDisplay;
+      memoryDisp = (details.memoryDisplay && details.memoryDisplay !== "N/A") ? details.memoryDisplay : domStats.memoryDisplay;
+    }
 
     const payload = {
       submissionId,
