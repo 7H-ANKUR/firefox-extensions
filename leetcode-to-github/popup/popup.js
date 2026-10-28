@@ -17,11 +17,18 @@ function setStatus(text, kind) {
 // ---------- tab switching ----------
 
 document.querySelectorAll(".tab-btn").forEach((btn) => {
-  btn.addEventListener("click", () => {
+  btn.addEventListener("click", async () => {
     document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
     document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
     btn.classList.add("active");
     el("tab-" + btn.dataset.tab).classList.add("active");
+
+    if (btn.dataset.tab === "companies" && api.permissions && api.permissions.request) {
+      const has = await api.permissions.contains({ origins: ["https://tpgpxgbrguiogufizenw.supabase.co/*"] }).catch(() => true);
+      if (!has) {
+        await api.permissions.request({ origins: ["https://tpgpxgbrguiogufizenw.supabase.co/*"] }).catch(() => {});
+      }
+    }
   });
 });
 

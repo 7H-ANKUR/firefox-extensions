@@ -4,7 +4,7 @@ Welcome to my personal repository for custom-built Firefox extensions. Each exte
 
 ## 📦 Current Extensions
 
-### 🔗 [LeetCode to GitHub Sync](./leetcode-to-github) — `v2.6.0`
+### 🔗 [LeetCode to GitHub Sync](./leetcode-to-github) — `v2.7.5`
 A powerful Firefox extension that automatically pushes your accepted LeetCode solutions to your personal GitHub repository.
 
 **Highlights:**

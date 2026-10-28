@@ -1,7 +1,7 @@
-﻿{
+{
   "manifest_version": 3,
-  "name": "LeetCode â†’ GitHub Auto Push",
-  "version": "2.7.4",
+  "name": "LeetCode → GitHub Auto Push",
+  "version": "2.7.5",
   "description": "Automatically pushes your accepted LeetCode solutions to a GitHub repository as soon as they pass.",
   "permissions": [
     "storage",
@@ -31,7 +31,7 @@
   },
   "action": {
     "default_popup": "popup/popup.html",
-    "default_title": "LeetCode â†’ GitHub",
+    "default_title": "LeetCode → GitHub",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

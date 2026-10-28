@@ -1,0 +1,10 @@
+# Package archives
+*.zip
+
+# Local test clones & data
+leetcode-solutions-clone/
+extract_fix/
+extract_fix_bad/
+
+# Graphify & documentation tools
+graphify-out/

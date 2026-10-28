@@ -87,22 +87,43 @@ const inFlightSubmissions = new Set();
   if (message && message.type === "FETCH_COMPANY_DATA") {
     const SUPABASE_URL = "https://tpgpxgbrguiogufizenw.supabase.co";
     const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZ3B4Z2JyZ3Vpb2d1Zml6ZW53Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0OTMzOTIsImV4cCI6MjEwODA2OTM5Mn0.JKXfXN0jkxgChz2STKzahRFofihF2MG9wwfm1271d5Q";
-    fetch(`${SUPABASE_URL}${message.urlPath}`, {
-      headers: {
-        apikey: SUPABASE_ANON,
-        Authorization: `Bearer ${SUPABASE_ANON}`,
-        "Content-Type": "application/json",
-      },
-    })
-      .then(async (res) => {
+
+    (async () => {
+      try {
+        if (api.permissions && api.permissions.contains) {
+          const hasHost = await api.permissions.contains({
+            origins: ["https://tpgpxgbrguiogufizenw.supabase.co/*"],
+          }).catch(() => true);
+          if (!hasHost) {
+            sendResponse({
+              ok: false,
+              error: "Supabase permission disabled. Enable it in about:addons -> LeetCode -> GitHub -> Permissions.",
+            });
+            return;
+          }
+        }
+
+        const res = await fetch(`${SUPABASE_URL}${message.urlPath}`, {
+          headers: {
+            apikey: SUPABASE_ANON,
+            Authorization: `Bearer ${SUPABASE_ANON}`,
+            "Content-Type": "application/json",
+          },
+        });
         const data = await res.json().catch(() => null);
         if (!res.ok) {
           sendResponse({ ok: false, error: `Supabase error ${res.status}` });
         } else {
           sendResponse({ ok: true, data });
         }
-      })
-      .catch((err) => sendResponse({ ok: false, error: err.message || "Fetch failed" }));
+      } catch (err) {
+        const isNetworkErr = err && (err.name === "TypeError" || /NetworkError/i.test(err.message));
+        const errorMsg = isNetworkErr
+          ? "Network blocked. Please ensure 'tpgpxgbrguiogufizenw.supabase.co' is enabled under about:addons -> Permissions."
+          : (err.message || "Fetch failed");
+        sendResponse({ ok: false, error: errorMsg });
+      }
+    })();
     return true;
   }
 });
