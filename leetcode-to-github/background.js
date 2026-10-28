@@ -477,7 +477,7 @@ function buildRootReadme(stats) {
     lines.push("");
     lines.push("| # | Title | Difficulty | Language | Runtime | Memory |");
     lines.push("|---|-------|------------|----------|---------|--------|");
-    sorted.sort((a, b) => Number(a.number || 9999) - Number(b.number || 9999));
+    const sorted = groups[cat].sort((a, b) => Number(a.number || 9999) - Number(b.number || 9999));
     for (const p of sorted) {
       const folder = `${p.number}-${p.slug || "unknown"}`;
       lines.push(`| ${p.number} | [${p.title || p.slug || "Untitled"}](${folder}/README.md) | ${p.difficulty || "—"} | ${p.language || "—"} | ${p.runtime || "—"} | ${p.memory || "—"} |`);
