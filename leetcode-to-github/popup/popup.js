@@ -90,22 +90,12 @@ el("testBtn").addEventListener("click", test);
 
 async function fetchCompanyQuestions(company) {
   const q = company.trim();
-  const url = `${SUPABASE_URL}/rest/v1/question_companies` +
-    `?company=ilike.*${encodeURIComponent(q)}*` +
-    `&select=question_id,title,slug,difficulty,frequency,company` +
-    `&order=frequency.desc` +
-    `&limit=200`;
-
-  const res = await fetch(url, {
-    headers: {
-      "apikey":        SUPABASE_ANON,
-      "Authorization": `Bearer ${SUPABASE_ANON}`,
-      "Content-Type":  "application/json",
-    },
+  const response = await api.runtime.sendMessage({
+    type: "FETCH_COMPANY_DATA",
+    urlPath: `/rest/v1/question_companies?company=ilike.*${encodeURIComponent(q)}*&select=question_id,title,slug,difficulty,frequency,company&order=frequency.desc&limit=200`,
   });
-
-  if (!res.ok) throw new Error(`Supabase error ${res.status}`);
-  return res.json();
+  if (!response || !response.ok) throw new Error(response ? response.error : "Supabase fetch failed");
+  return response.data;
 }
 
 function renderQuestions(questions, company) {

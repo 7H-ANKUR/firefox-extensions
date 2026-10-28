@@ -83,6 +83,28 @@ const inFlightSubmissions = new Set();
       .catch((err) => sendResponse({ ok: false, error: err.message }));
     return true;
   }
+
+  if (message && message.type === "FETCH_COMPANY_DATA") {
+    const SUPABASE_URL = "https://tpgpxgbrguiogufizenw.supabase.co";
+    const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZ3B4Z2JyZ3Vpb2d1Zml6ZW53Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0OTMzOTIsImV4cCI6MjEwODA2OTM5Mn0.JKXfXN0jkxgChz2STKzahRFofihF2MG9wwfm1271d5Q";
+    fetch(`${SUPABASE_URL}${message.urlPath}`, {
+      headers: {
+        apikey: SUPABASE_ANON,
+        Authorization: `Bearer ${SUPABASE_ANON}`,
+        "Content-Type": "application/json",
+      },
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          sendResponse({ ok: false, error: `Supabase error ${res.status}` });
+        } else {
+          sendResponse({ ok: true, data });
+        }
+      })
+      .catch((err) => sendResponse({ ok: false, error: err.message || "Fetch failed" }));
+    return true;
+  }
 });
 
 // ---------- settings ----------
@@ -431,29 +453,38 @@ function buildStatsJson(stats) {
 
 function buildRootReadme(stats) {
   const summary = summarizeStats(stats);
-  const numbers = Object.keys(stats.problems).sort((a, b) => Number(a) - Number(b));
 
-  const rows = numbers.map((num) => {
-    const p = stats.problems[num];
-    const n = Number(num);
-    const folder = `${num}-${p.slug || "unknown"}`;
-    return `| ${n} | [${p.title || p.slug || "Untitled"}](${folder}/README.md) | ${p.difficulty || "—"} | ${
-      p.language || "—"
-    } | ${p.runtime || "—"} | ${p.memory || "—"} |`;
-  });
+  // Group by first topic/category; fall back to "Misc" if no topics
+  const groups = {};
+  for (const [num, p] of Object.entries(stats.problems)) {
+    const cat = (p.topics && p.topics.length > 0) ? p.topics[0] : "Misc";
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push({ ...p, number: num });
+  }
 
-  return [
+  const sortedCategories = Object.keys(groups).sort();
+  const lines = [
     "# LeetCode Solutions",
     "",
     `Auto-synced from LeetCode. **${summary.total} solved** — ${summary.easy} Easy, ${summary.medium} Medium, ${summary.hard} Hard.`,
     "",
     `_Last updated: ${new Date().toISOString()}_`,
     "",
-    "| # | Title | Difficulty | Language | Runtime | Memory |",
-    "|---|-------|------------|----------|---------|--------|",
-    ...rows,
-    "",
-  ].join("\n");
+  ];
+
+  for (const cat of sortedCategories) {
+    lines.push(`## ${cat}`);
+    lines.push("");
+    lines.push("| # | Title | Difficulty | Language | Runtime | Memory |");
+    lines.push("|---|-------|------------|----------|---------|--------|");
+    sorted.sort((a, b) => Number(a.number || 9999) - Number(b.number || 9999));
+    for (const p of sorted) {
+      const folder = `${p.number}-${p.slug || "unknown"}`;
+      lines.push(`| ${p.number} | [${p.title || p.slug || "Untitled"}](${folder}/README.md) | ${p.difficulty || "—"} | ${p.language || "—"} | ${p.runtime || "—"} | ${p.memory || "—"} |`);
+    }
+    lines.push("");
+  }
+  return lines.join("\n");
 }
 
 // ---------- main entry points ----------

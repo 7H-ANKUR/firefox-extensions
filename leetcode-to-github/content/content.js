@@ -67,18 +67,12 @@
   const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZ3B4Z2JyZ3Vpb2d1Zml6ZW53Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0OTMzOTIsImV4cCI6MjEwODA2OTM5Mn0.JKXfXN0jkxgChz2STKzahRFofihF2MG9wwfm1271d5Q";
 
   async function fetchCompanies(slug) {
-    const url = `${SUPABASE_URL}/rest/v1/question_companies` +
-      `?slug=eq.${encodeURIComponent(slug)}` +
-      `&select=company,frequency` +
-      `&order=frequency.desc`;
-    const res = await fetch(url, {
-      headers: {
-        "apikey":        SUPABASE_ANON,
-        "Authorization": `Bearer ${SUPABASE_ANON}`,
-      },
+    const res = await api.runtime.sendMessage({
+      type: "FETCH_COMPANY_DATA",
+      urlPath: `/rest/v1/question_companies?slug=eq.${encodeURIComponent(slug)}&select=company,frequency&order=frequency.desc`,
     });
-    if (!res.ok) throw new Error(`Supabase ${res.status}`);
-    return res.json();
+    if (!res || !res.ok) throw new Error(res ? res.error : "Failed to fetch company data");
+    return res.data;
   }
 
   function getProblemSlugFromUrl() {
@@ -131,15 +125,12 @@
 
   async function fetchCompanyQuestions(company) {
     const q = company.trim();
-    const url = `${SUPABASE_URL}/rest/v1/question_companies` +
-      `?company=ilike.*${encodeURIComponent(q)}*` +
-      `&select=question_id,title,slug,difficulty,frequency,company` +
-      `&order=frequency.desc&limit=200`;
-    const res = await fetch(url, {
-      headers: { "apikey": SUPABASE_ANON, "Authorization": `Bearer ${SUPABASE_ANON}` },
+    const res = await api.runtime.sendMessage({
+      type: "FETCH_COMPANY_DATA",
+      urlPath: `/rest/v1/question_companies?company=ilike.*${encodeURIComponent(q)}*&select=question_id,title,slug,difficulty,frequency,company&order=frequency.desc&limit=200`,
     });
-    if (!res.ok) throw new Error(`Supabase ${res.status}`);
-    return res.json();
+    if (!res || !res.ok) throw new Error(res ? res.error : `Supabase fetch failed`);
+    return res.data;
   }
 
   // Company search panel — shown on non-problem pages
@@ -415,9 +406,16 @@
     const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
     let n;
     while ((n = walk.nextNode())) {
-      const text = n.nodeValue.trim();
-      if (!runtimeDisplay && /^\d+\s*ms$/i.test(text)) runtimeDisplay = text;
-      if (!memoryDisplay && /^\d+(?:\.\d+)?\s*(MB|KB)$/i.test(text)) memoryDisplay = text;
+      const text = n.nodeValue || "";
+      // More lenient extraction: look for patterns inside text that may include extra text like percentiles
+      if (!runtimeDisplay) {
+        const msMatch = text.match(/(\d+(?:\.\d+)?)\s*ms/i);
+        if (msMatch) runtimeDisplay = msMatch[1] + " ms";
+      }
+      if (!memoryDisplay) {
+        const memMatch = text.match(/(\d+(?:\.\d+)?)\s*(MB|KB)/i);
+        if (memMatch) memoryDisplay = memMatch[1] + " " + memMatch[2];
+      }
     }
     return { runtimeDisplay, memoryDisplay };
   }
@@ -647,11 +645,14 @@
     btn.textContent = "Pushing…";
     btn.style.opacity = "0.7";
     btn.style.cursor = "default";
-    await pushSubmissionById(submissionId);
-    btn.textContent = original;
-    btn.style.opacity = "1";
-    btn.style.cursor = "pointer";
-    delete btn.dataset.busy;
+    try {
+      await pushSubmissionById(submissionId);
+    } finally {
+      btn.textContent = original;
+      btn.style.opacity = "1";
+      btn.style.cursor = "pointer";
+      delete btn.dataset.busy;
+    }
   }
 
   function makeManualButtonElement(submissionId, floating) {
