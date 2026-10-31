@@ -446,6 +446,7 @@ function applyProblemToStats(stats, payload, number, title, codePath) {
     memory: payload.memory || null,
     path: codePath,
     solvedAt: new Date().toISOString(),
+    topics: payload.topics || [],
   };
   return stats;
 }
